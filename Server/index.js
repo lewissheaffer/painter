@@ -3,87 +3,76 @@
 process.title = 'node-chat';
 // Port where we'll run the websocket server
 var webSocketsServerPort = 8080;
-// websocket and http servers
-var webSocketServer = require('websocket').server;
-var http = require('http');
 
-/**
- * Global variables
- */
-var history = [ ];
-// list of currently connected clients (users)
-var clients = [ ];
+var express = require('express');
+var cors = require('cors')
+var app = express();
+var expressWs = require('express-ws')(app);
 
-/**
- * HTTP server
- */
-var server = http.createServer(function(request, response) {
-  // Not important for us. We're writing WebSocket server,
-  // not HTTP server
-});
-server.listen(webSocketsServerPort, function() {
-  console.log((new Date()) + " Server is listening on port "
-      + webSocketsServerPort);
+//Current canvas object url 
+let canvasUrl = null;
+
+//List of client connections
+let clients = []
+
+app.use(express.json());
+app.use(cors());
+
+app.get('/getRoute', function (req, res, next) {
+  console.log('get route');
+  res.json({ 'route': 'name' });
 });
 
-/**
- * WebSocket server
- */
-var wsServer = new webSocketServer({
-  httpServer: server
+app.post('/update', function (req, res, next) {
+  // console.log('update');
+  canvasUrl = req.body.url
+  res.send("done!");
 });
-// This callback function is called every time someone
-// tries to connect to the WebSocket server
-wsServer.on('request', function(request) {
-  console.log((new Date()) + ' Connection from origin '
-      + request.origin + '.');
-  // accept connection - you should check 'request.origin' to
-  // make sure that client is connecting from your website
-  // (http://en.wikipedia.org/wiki/Same_origin_policy)
-  var connection = request.accept(null, request.origin);
-  // we need to know client index to remove them on 'close' event
-  var index = clients.push(connection) - 1;
-  console.log(index);
-  console.log((new Date()) + ' Connection accepted.');
-  // send back chat history
-  if (history.length > 0) {
-    connection.sendUTF(
-        JSON.stringify({ type: 'history', data: history} ));
-  }
-  // user sent some message
-  connection.on('message', function(message) {
-    if (message.type === 'utf8') { // accept only text
-      var json;
-      //try {
-        console.log(message)
-        let clientObject = JSON.parse(message.utf8Data);
 
-      //} catch (e) {
-      //  console.log('Invalid JSON: ', message.utf8Data);
-      //}
+app.get('/history', function (req, res, next) {
+  console.log('history request');
+  res.json({ 'url': canvasUrl });
+});
 
-      if (clientObject.type = 'update') {
-        history.push(clientObject.canvasObject);
-        json = JSON.stringify({ type:'update', canvasObject: clientObject.canvasObject });
+app.get('/getUpdate', function (req, res, next) {
+  res.json({ 'url': canvasUrl });
+});
+
+app.ws('/', function (ws, req) {
+  ws.on('close', () => {
+    //Remove the client upon their loss of connection
+    clients.forEach((item, index) => {
+      if (item == ws) {
+        console.log("Deleting specific client")
+        clients.splice(index, 1);
       }
-      else if (clientObject.type = 'undo') {
-        history.pop();
-        json = JSON.stringify({ type:'updo'});
-      }
-
-      for (var i=0; i < clients.length; i++) {
-        if(i != index) {
-          clients[i].sendUTF(json);
+    })
+  })
+  ws.on('message', function (msg) {
+    if (msg == "update") {
+      clients.forEach((item, index) => {
+        if (item != ws) {
+          item.send("update")
         }
-      }
+      })
+    }
+    else if (msg == "undo") {
+      clients.forEach((item, index) => {
+        if (item != ws) {
+          item.send("undo")
+        }
+      })
     }
   });
 
-  // user disconnected
-  connection.on('close', function(connection) {
-      console.log((new Date()) + " Peer "
-          + connection.remoteAddress + " disconnected.");
-      // remove user from the list of connected clients
-      clients.splice(index, 1);
-  });
+  //The following code will execute upon connection from a client
+  clients.push(ws)
+  if (canvasUrl) {
+    console.log("Sending History")
+    ws.send("history");
+  }
+  console.log("Client Connected!")
+
 });
+
+app.listen(8080);

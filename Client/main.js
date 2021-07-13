@@ -3,7 +3,7 @@ var undoButton = document.getElementById("undoButton");
 var context = canvas.getContext("2d");
 var height = canvas.height = 200;
 var width = canvas.width = 300;
-savedData = []
+var savedData = []
 var mouseClicked = false, mouseReleased = true;
 
 canvas.addEventListener("click", onMouseClick, false);
@@ -21,7 +21,7 @@ window.WebSocket = window.WebSocket || window.MozWebSocket;
 // some notification and exit
 if (!window.WebSocket) {
   content.html($('<p>',
-    { text:'Sorry, but your browser doesn\'t support WebSocket.'}
+    { text: 'Sorry, but your browser doesn\'t support WebSocket.' }
   ));
 
   canvas.hide();
@@ -30,68 +30,75 @@ if (!window.WebSocket) {
 var connection = new WebSocket('ws://localhost:8080');
 connection.onopen = function () {
   console.log("connected")
+  connection.send("This is a test");
 };
+
 connection.onerror = function (error) {
   // just in there were some problems with connection...
   content.html($('<p>', {
     text: 'Sorry, but there\'s some problem with your '
-       + 'connection or the server is down.'
+      + 'connection or the server is down.'
   }));
 };
-// most important part - incoming messages
+
+//Handle incoming websocket messages
 connection.onmessage = function (message) {
   // try to parse JSON message. Because we know that the server
   try {
-    var json = JSON.parse(message.data);
+    var data = message.data
+    //var json = JSON.parse(message.data);
   } catch (e) {
     console.log('Invalid JSON: ', message.data);
   }
-  // NOTE: if you're not sure about the JSON structure
-  // check the server source code above
-  // first response from the server with user's color
-  if (json.type === 'color') {
-    myColor = json.data;
-    // from now user can start sending messages
-  } else if (json.type === 'history') { // entire message history
-    // insert every single message to the chat window
+  if (data === 'update') { // entire message history
+    console.log("Websocket message recieved")
+    retrieveUpdate();
+  }
+  else if (data === 'history') { // entire message history
+    retrieveHistory();
 
-  } else if (json.type === 'update') { // it's a single message
-    savedData.add(json.newCanvasObject);
-
-  } else if (json.type === 'undo') {
-      onUndoButtonClick();
+  } else if (data === 'undo') {
+    console.log('undoing')
+    undoDrawing();
   }
   else {
-    console.log('Hmm..., I\'ve never seen JSON like this:', json);
+    console.log('Hmm..., I\'ve never seen JSON like this:', data);
   }
 };
 
-
 /**
- * This method is optional. If the server wasn't able to
+ * If the server wasn't able to
  * respond to the in 3 seconds then show some error message
  * to notify the user that something is wrong.
  */
-setInterval(function() {
+setInterval(function () {
   if (connection.readyState !== 1) {
     console.log("error: server failed to respond")
   }
 }, 3000);
 
 
-
 function onUndoButtonClick(e) {
-  if(savedData.length > 0) {
+  if (savedData.length > 0) {
     var imgData = savedData.pop();
-    context.putImageData(imgData,0,0);
-    sendUpdate('undo', imgData);
+    context.putImageData(imgData, 0, 0);
+    //Send a message through websockets indicating undo
+    connection.send("undo");
+  }
+}
+
+function undoDrawing() {
+  if (savedData.length > 0) {
+    var imgData = savedData.pop();
+    context.putImageData(imgData, 0, 0);
+    //Send a message through websockets indicating undo
   }
 }
 
 //Will execute on release of the mouse
 function onMouseClick(e) {
-    mouseClicked = false;
-    sendUpdate('update', savedData[savedData.length - 1])
+  mouseClicked = false;
+  sendUpdate(savedData[savedData.length - 1])
 }
 
 function onMouseDown(e) {
@@ -101,21 +108,63 @@ function onMouseDown(e) {
 }
 
 function onMouseMove(e) {
-    if (mouseClicked && e.clientX <= width && e.clientY <= height) {
-        context.beginPath();
-        context.ellipse(e.clientX, e.clientY, 7.5, 7.5, 0, Math.PI * 2, false);
-        context.lineWidth = 5;
-        context.strokeStyle = "#000";
-        context.fill();
-        context.stroke();
-    }
+  if (mouseClicked && e.clientX <= width && e.clientY <= height) {
+    context.beginPath();
+    context.ellipse(e.clientX, e.clientY, 7.5, 7.5, 0, Math.PI * 2, false);
+    context.lineWidth = 5;
+    context.strokeStyle = "#000";
+    context.fill();
+    context.stroke();
+  }
 }
 
-function sendUpdate(type, canvasObject) {
-  let payload = {
-    type: type,
-    canvasObject: canvasObject,
-  }
-  //connection.send(JSON.stringify(payload));
-  connection.send("this is a message");
+function sendUpdate(canvasObject) {
+  const canvasUrl = canvas.toDataURL()
+  fetch('http://localhost:8080/update', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ "url": canvasUrl }),
+  })
+    .then(response => {
+      console.log("sending websocket update message")
+      connection.send('update')
+    })
+    .catch((error) => {
+      console.error('Error:', error);
+    });
+}
+
+function retrieveUpdate() {
+  fetch('http://localhost:8080/getUpdate')
+    .then(response => response.json())
+    .then(data => {
+      dataURL = data.url
+      var img = new Image;
+      img.src = dataURL;
+      savedData.push(img);
+      img.onload = () => { context.drawImage(img, 0, 0); };
+    })
+    .catch((error) => {
+      console.error('Error:', error);
+    });
+}
+
+function retrieveHistory() {
+  fetch('http://localhost:8080/history')
+    .then(response => response.json())
+    .then(data => {
+      dataURL = data.url
+      var img = new Image;
+      img.src = dataURL;
+      savedData.push(img);
+      img.onload = () => { context.drawImage(img, 0, 0); };
+      // savedData = data.history;
+      // console.log(savedData[savedData.length - 1].canvasObject);
+      // context.putImageData(savedData[savedData.length - 1].canvasObject, 0, 0);
+    })
+    .catch((error) => {
+      console.error('Error:', error);
+    });
 }
