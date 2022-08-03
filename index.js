@@ -5,6 +5,7 @@ process.title = 'node-chat';
 var webSocketsServerPort = 8080;
 
 var express = require('express');
+const path = require('path');
 var cors = require('cors')
 var app = express();
 var expressWs = require('express-ws')(app);
@@ -17,6 +18,11 @@ let clients = []
 
 app.use(express.json());
 app.use(cors());
+app.use(express.static('public'))
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, './index.html'))
+})
 
 app.get('/getRoute', function (req, res, next) {
   console.log('get route');

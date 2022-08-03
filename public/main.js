@@ -1,3 +1,5 @@
+const hostURL = "painterserver.azurewebsites.net"; //"localhost:8080";
+
 var canvas = document.getElementsByTagName("canvas")[0];
 var undoButton = document.getElementById("undoButton");
 var context = canvas.getContext("2d");
@@ -27,7 +29,7 @@ if (!window.WebSocket) {
   canvas.hide();
 }
 // open connection
-var connection = new WebSocket('ws://localhost:8080');
+var connection = new WebSocket(`ws://${hostURL}`);
 connection.onopen = function () {
   console.log("connected")
   connection.send("This is a test");
@@ -120,7 +122,7 @@ function onMouseMove(e) {
 
 function sendUpdate(canvasObject) {
   const canvasUrl = canvas.toDataURL()
-  fetch('http://localhost:8080/update', {
+  fetch('http://${hostURL}/update', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -137,7 +139,7 @@ function sendUpdate(canvasObject) {
 }
 
 function retrieveUpdate() {
-  fetch('http://localhost:8080/getUpdate')
+  fetch('http://${hostURL}/getUpdate')
     .then(response => response.json())
     .then(data => {
       dataURL = data.url
@@ -152,7 +154,7 @@ function retrieveUpdate() {
 }
 
 function retrieveHistory() {
-  fetch('http://localhost:8080/history')
+  fetch('http://${hostURL}/history')
     .then(response => response.json())
     .then(data => {
       dataURL = data.url
