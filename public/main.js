@@ -122,7 +122,7 @@ function onMouseMove(e) {
 
 function sendUpdate(canvasObject) {
   const canvasUrl = canvas.toDataURL()
-  fetch('http://${hostURL}/update', {
+  fetch(`http://${hostURL}/update`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -139,7 +139,7 @@ function sendUpdate(canvasObject) {
 }
 
 function retrieveUpdate() {
-  fetch('http://${hostURL}/getUpdate')
+  fetch(`http://${hostURL}/getUpdate`)
     .then(response => response.json())
     .then(data => {
       dataURL = data.url
@@ -154,7 +154,7 @@ function retrieveUpdate() {
 }
 
 function retrieveHistory() {
-  fetch('http://${hostURL}/history')
+  fetch(`http://${hostURL}/history`)
     .then(response => response.json())
     .then(data => {
       dataURL = data.url
