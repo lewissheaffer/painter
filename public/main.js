@@ -1,4 +1,4 @@
-const hostURL = "painterserver.azurewebsites.net"; //"localhost:8080";
+const hostURL = "painterserver.azurewebsites.net"; //"localhost:80";
 
 var canvas = document.getElementsByTagName("canvas")[0];
 var undoButton = document.getElementById("undoButton");
