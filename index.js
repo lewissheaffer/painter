@@ -4,6 +4,9 @@ process.title = 'node-chat';
 // Port where we'll run the websocket server
 var webSocketsServerPort = 80;
 
+
+const port = process.env.PORT || 8080;
+
 var express = require('express');
 const path = require('path');
 var cors = require('cors')
@@ -81,4 +84,4 @@ app.ws('/', function (ws, req) {
 
 });
 
-app.listen(80);
+app.listen(port);
